@@ -1183,7 +1183,7 @@ class MobileAppQRLoginTest extends WC_REST_Unit_Test_Case {
 				'model' => 'iPhone 15',
 			)
 		);
-		$uuid = $exchange->get_data()['uuid'];
+		$uuid      = $exchange->get_data()['uuid'];
 
 		// Shop manager tries to revoke admin's AP. This must fail with 404 —
 		// we don't even leak that the AP exists.
