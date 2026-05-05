@@ -7,7 +7,6 @@ import * as iAPI from '@wordpress/interactivity';
  * Internal dependencies
  */
 import { decodeHtmlEntities } from '../../utils/html-entities';
-import setStyles from './set-styles';
 
 const { getContext, store, getServerContext, getConfig } = iAPI;
 
@@ -247,8 +246,6 @@ const productFiltersStore = {
 };
 
 export type ProductFiltersStore = typeof productFiltersStore;
-
-setStyles();
 
 const { state, actions } = store< ProductFiltersStore >(
 	BLOCK_NAME,
