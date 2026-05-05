@@ -9624,3 +9624,17 @@ body.woocommerce-settings-payments-section_legacy {
 	width: 12px;
 	height: 12px;
 }
+
+/**
+ * Order edit screen (HPOS) — page width and centering.
+ *
+ * Constrains the order edit content to a comfortable reading width and
+ * centers it within the admin viewport. Scoped to the HPOS order edit
+ * screen via the body class so the rest of WP admin is unaffected.
+ */
+.woocommerce_page_wc-orders {
+	.wrap:has(#poststuff) {
+		max-width: 1000px;
+		margin: auto;
+	}
+}

@@ -1,0 +1,4 @@
+Significance: minor
+Type: enhancement
+
+Constrain the HPOS order edit screen content to a 1000px max width and center it within the admin viewport for improved readability.
