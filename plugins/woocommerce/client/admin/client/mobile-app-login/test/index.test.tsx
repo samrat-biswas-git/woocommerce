@@ -11,6 +11,7 @@ import {
 	QRLoginTokenStates,
 	useQRLoginToken,
 } from '~/homescreen/mobile-app-modal/components/useQRLoginToken';
+import { useQRLoginAvailability } from '~/homescreen/mobile-app-modal/components/useQRLoginAvailability';
 
 // Drive `<QRDirectLoginCode />` from the tests by mocking its shared token
 // hook. The real component is rendered so we exercise the integration
@@ -25,6 +26,13 @@ jest.mock( '~/homescreen/mobile-app-modal/components/useQRLoginToken', () => {
 	};
 } );
 
+jest.mock(
+	'~/homescreen/mobile-app-modal/components/useQRLoginAvailability',
+	() => ( {
+		useQRLoginAvailability: jest.fn(),
+	} )
+);
+
 // Keep tests isolated from analytics side-effects.
 jest.mock( '@woocommerce/tracks', () => ( {
 	recordEvent: jest.fn(),
@@ -33,20 +41,39 @@ jest.mock( '@woocommerce/tracks', () => ( {
 const mockedUseQRLoginToken = useQRLoginToken as jest.MockedFunction<
 	typeof useQRLoginToken
 >;
+const mockedUseQRLoginAvailability =
+	useQRLoginAvailability as jest.MockedFunction<
+		typeof useQRLoginAvailability
+	>;
 
-const makeReadyState = () => ( {
+const makeTokenState = (
+	overrides: Partial< ReturnType< typeof useQRLoginToken > > = {}
+): ReturnType< typeof useQRLoginToken > => ( {
 	state: QRLoginTokenStates.READY,
 	qrUrl: 'woocommerce://qr-login?token=abc&siteUrl=https%3A%2F%2Fexample.test',
 	secondsRemaining: 300,
 	errorMessage: null,
+	errorCode: null,
+	deviceInfo: null,
+	apUuid: null,
+	candidateNumbers: null,
+	challengeExpiresAt: 0,
+	chooseNumber: jest.fn(),
 	fetchToken: jest.fn(),
 	refreshToken: jest.fn(),
+	revoke: jest.fn(),
+	...overrides,
 } );
 
 describe( 'MobileAppLoginPage', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
-		mockedUseQRLoginToken.mockReturnValue( makeReadyState() );
+		mockedUseQRLoginAvailability.mockReturnValue( {
+			isLoading: false,
+			available: true,
+			reason: null,
+		} );
+		mockedUseQRLoginToken.mockReturnValue( makeTokenState() );
 	} );
 
 	it( 'renders the heading, scan-first intro, and the QR code', () => {
@@ -89,10 +116,11 @@ describe( 'MobileAppLoginPage', () => {
 
 	it( 'does not offer a manual refresh while a QR code is still valid', () => {
 		const fetchToken = jest.fn();
-		mockedUseQRLoginToken.mockReturnValue( {
-			...makeReadyState(),
-			fetchToken,
-		} );
+		mockedUseQRLoginToken.mockReturnValue(
+			makeTokenState( {
+				fetchToken,
+			} )
+		);
 
 		render( <MobileAppLoginPage /> );
 
@@ -107,14 +135,14 @@ describe( 'MobileAppLoginPage', () => {
 
 	it( 'lets the shared QR component generate a new code after expiry', () => {
 		const refreshToken = jest.fn();
-		mockedUseQRLoginToken.mockReturnValue( {
-			state: QRLoginTokenStates.EXPIRED,
-			qrUrl: null,
-			secondsRemaining: 0,
-			errorMessage: null,
-			fetchToken: jest.fn(),
-			refreshToken,
-		} );
+		mockedUseQRLoginToken.mockReturnValue(
+			makeTokenState( {
+				state: QRLoginTokenStates.EXPIRED,
+				qrUrl: null,
+				secondsRemaining: 0,
+				refreshToken,
+			} )
+		);
 
 		render( <MobileAppLoginPage /> );
 
@@ -145,14 +173,14 @@ describe( 'MobileAppLoginPage', () => {
 	} );
 
 	it( 'surfaces the QR error state from useQRLoginToken without breaking the page shell', () => {
-		mockedUseQRLoginToken.mockReturnValue( {
-			state: QRLoginTokenStates.ERROR,
-			qrUrl: null,
-			secondsRemaining: 0,
-			errorMessage: 'QR login requires an HTTPS connection.',
-			fetchToken: jest.fn(),
-			refreshToken: jest.fn(),
-		} );
+		mockedUseQRLoginToken.mockReturnValue(
+			makeTokenState( {
+				state: QRLoginTokenStates.ERROR,
+				qrUrl: null,
+				secondsRemaining: 0,
+				errorMessage: 'QR login requires an HTTPS connection.',
+			} )
+		);
 
 		render( <MobileAppLoginPage /> );
 
