@@ -2,9 +2,20 @@
  * External dependencies
  */
 import { useState, useCallback, useEffect, useRef } from '@wordpress/element';
+import type { ReactNode } from 'react';
 import { __ } from '@wordpress/i18n';
 import { WC_ADMIN_NAMESPACE } from '@woocommerce/data';
 import apiFetch from '@wordpress/api-fetch';
+import interpolateComponents from '@automattic/interpolate-components';
+import { Link } from '@woocommerce/components';
+
+/**
+ * Documentation URL we link to when application passwords are unavailable.
+ * Centralized so the constant can be reused (e.g. in tests or future
+ * surfaces) and so the link is easy to update when the WP docs URL moves.
+ */
+const APPLICATION_PASSWORDS_DOCS_URL =
+	'https://developer.wordpress.org/advanced-administration/security/application-passwords/';
 
 export const QRLoginTokenStates = {
 	IDLE: 'idle',
@@ -29,7 +40,18 @@ export const useQRLoginToken = () => {
 	);
 	const [ qrUrl, setQrUrl ] = useState< string | null >( null );
 	const [ secondsRemaining, setSecondsRemaining ] = useState< number >( 0 );
-	const [ errorMessage, setErrorMessage ] = useState< string | null >( null );
+	// `errorMessage` is rendered directly by `<QRDirectLoginCode />`. It is a
+	// `ReactNode` (not just `string`) so individual cases can inject inline
+	// links — e.g. the `application_passwords_unavailable` branch wraps a
+	// "Learn more" link in the message itself.
+	const [ errorMessage, setErrorMessage ] = useState< ReactNode | null >(
+		null
+	);
+	// `errorCode` mirrors the REST error code that triggered the message,
+	// exposed alongside `errorMessage` so callers (e.g. analytics) can
+	// reliably reference the failure mode regardless of how the message was
+	// rendered.
+	const [ errorCode, setErrorCode ] = useState< string | null >( null );
 	const timerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const expiresAtRef = useRef< number >( 0 );
 	const isMountedRef = useRef( true );
@@ -81,6 +103,7 @@ export const useQRLoginToken = () => {
 		setSecondsRemaining( 0 );
 		setState( QRLoginTokenStates.LOADING );
 		setErrorMessage( null );
+		setErrorCode( null );
 
 		try {
 			const response = await apiFetch< QRLoginTokenResponse >( {
@@ -128,6 +151,7 @@ export const useQRLoginToken = () => {
 			setState( QRLoginTokenStates.ERROR );
 
 			const err = error as { code?: string; message?: string };
+			setErrorCode( err.code ?? null );
 			switch ( err.code ) {
 				case 'woocommerce_rest_cannot_view':
 					// The endpoint requires the `manage_woocommerce`
@@ -149,11 +173,26 @@ export const useQRLoginToken = () => {
 					);
 					break;
 				case 'application_passwords_unavailable':
+					// The merchant who hits this is already an admin or shop
+					// manager — telling them to "ask a site administrator" is
+					// circular. Point them at the WP docs instead so they can
+					// figure out which constant or plugin disabled APs.
 					setErrorMessage(
-						__(
-							'Application passwords are disabled on this site, so QR login is unavailable. Ask a site administrator to enable them.',
-							'woocommerce'
-						)
+						interpolateComponents( {
+							mixedString: __(
+								'Application passwords are disabled on this site, so QR login is unavailable. Find more about application passwords {{link}}here{{/link}}.',
+								'woocommerce'
+							),
+							components: {
+								link: (
+									<Link
+										href={ APPLICATION_PASSWORDS_DOCS_URL }
+										target="_blank"
+										type="external"
+									/>
+								),
+							},
+						} )
 					);
 					break;
 				case 'rate_limit_exceeded':
@@ -192,6 +231,7 @@ export const useQRLoginToken = () => {
 		qrUrl,
 		secondsRemaining,
 		errorMessage,
+		errorCode,
 		fetchToken,
 		refreshToken: fetchToken,
 	};

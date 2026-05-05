@@ -18,6 +18,7 @@ export const QRDirectLoginCode = () => {
 		qrUrl,
 		secondsRemaining,
 		errorMessage,
+		errorCode,
 		fetchToken,
 		refreshToken,
 	} = useQRLoginToken();
@@ -49,12 +50,18 @@ export const QRDirectLoginCode = () => {
 		if ( state === QRLoginTokenStates.ERROR && ! errorTrackedRef.current ) {
 			errorTrackedRef.current = true;
 			recordEvent( 'mobile_app_qr_direct_login_failed', {
-				error_message: errorMessage ?? '',
+				// Prefer the REST `error_code` for funnel attribution — it is
+				// stable across translations and rich-message rendering.
+				// `error_message` stays as a best-effort string fallback for
+				// debugging; ReactNode messages serialize to '' here.
+				error_code: errorCode ?? 'unknown',
+				error_message:
+					typeof errorMessage === 'string' ? errorMessage : '',
 			} );
 		} else if ( state !== QRLoginTokenStates.ERROR ) {
 			errorTrackedRef.current = false;
 		}
-	}, [ state, errorMessage ] );
+	}, [ state, errorMessage, errorCode ] );
 
 	const formatTime = ( seconds: number ) => {
 		const mins = Math.floor( seconds / 60 );
